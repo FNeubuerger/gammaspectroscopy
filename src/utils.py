@@ -235,7 +235,7 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
 
     return identified_isotopes, identified_peaks, isotope_confidences, percentage_matched
 
-def process_spectrum(filename: str, prominence: int = 1000, width: int = None, rel_height: float = None, verbose=False, **kwargs) -> pd.DataFrame:
+def process_spectrum(filename: str, prominence: int = 1000, width: int = None, rel_height: float = None, tolerance: float = 0.5, verbose=False, **kwargs) -> pd.DataFrame:
     """
     Processes a gamma spectrum file and identifies peaks.
     This function reads a gamma spectrum data file, processes the data to identify peaks,
@@ -298,7 +298,7 @@ def process_spectrum(filename: str, prominence: int = 1000, width: int = None, r
 
     peaks, properties = find_peaks(data['counts'], prominence=prominence, width=width, rel_height=rel_height)
     fitted_peaks = fit_gaussian(data, peaks, properties, polynomial=polynomial)
-    identified_isotopes, identified_peaks, confidences, matched = identify_isotopes(fitted_peaks, verbose=verbose)
+    identified_isotopes, identified_peaks, confidences, matched = identify_isotopes(fitted_peaks, tolerance=tolerance, verbose=verbose)
     total_confidences = [c * p for c, p in zip(confidences, matched)]
     return pd.DataFrame({
         'filename': [filename],
