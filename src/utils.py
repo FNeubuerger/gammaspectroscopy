@@ -132,7 +132,8 @@ def get_isotopes_df()-> pd.DataFrame:
     return pd.DataFrame(gamma_spectrum_data)
 
 
-def plot_spectrum(filename):
+def plot_spectrum_from_file(filename: str):
+    """Plot a gamma spectrum from a data file."""
     data = pd.read_table(filename, header=3)
     data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
 
@@ -144,6 +145,10 @@ def plot_spectrum(filename):
     plt.legend()
     plt.show()
 
+def plot_spectrum(df: pd.DataFrame):
+    df['data'].plot(x='energy in keV', y='counts', kind='hist', figsize=(10, 6))
+    plt.xlabel('Energy (keV)')
+    plt.ylabel('Counts')
 
 def calculate_confidence(peak, energy, std):
     """Calculate confidence score for peak matching an energy value."""
