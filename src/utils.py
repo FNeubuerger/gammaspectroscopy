@@ -71,6 +71,33 @@ def fit_gaussian(data: pd.DataFrame, peaks: np.ndarray, properties: dict, polyno
     fitted_peaks = unumpy.uarray(fitted_peak_mean, fitted_peak_std)
     return polynomial(fitted_peaks)
 
+def identify_background(data: pd.DataFrame, wndw: int = 5, order: int = 3, scale: float = 1.5) -> np.ndarray:
+    """
+    Identify the background of a spectrum by analyzing the slopes and applying a moving average.
+    Parameters:
+    -----------
+    data : pd.DataFrame
+        The processed data containing the counts.
+    wndw : int, optional
+        The window size for the moving average (default is 5).
+    order : int, optional
+        The order of the moving average (default is 3).
+    scale : float, optional
+        The scale factor to determine the background threshold (default is 1.5).
+    Returns:
+    --------
+    np.ndarray
+        The interpolated background values.
+    """
+    counts = data['counts'].values
+    slopes = np.abs(np.diff(counts))
+    moving_avg = np.convolve(slopes, np.ones(wndw) / wndw, mode='same')
+    threshold = np.mean(moving_avg) * scale
+    background_mask = moving_avg < threshold
+    background_mask = np.append(background_mask, True)  # Ensure the mask has the same length as counts
+    background = np.interp(np.arange(len(counts)), np.arange(len(counts))[background_mask], counts[background_mask])
+    return background
+
 def get_isotopes_df()-> pd.DataFrame:
     """
     Create a DataFrame with gamma spectrum data for various isotopes.
@@ -132,13 +159,15 @@ def get_isotopes_df()-> pd.DataFrame:
     return pd.DataFrame(gamma_spectrum_data)
 
 
-def plot_spectrum_from_file(filename: str):
+def plot_spectrum_from_file(filename: str, bg: np.ndarray = np.array([])):
     """Plot a gamma spectrum from a data file."""
     data = pd.read_table(filename, header=3)
     data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
 
     plt.figure(figsize=(10, 6))
     plt.plot(data['energy in keV'], data['counts'], label=filename)
+    if len(bg)!=0:
+        plt.plot(data['energy in keV'], bg, label='Background', color='r')
     plt.xlabel('Energy (keV)')
     plt.ylabel('Counts')
     plt.title('Spectrum')
