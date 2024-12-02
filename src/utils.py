@@ -145,8 +145,22 @@ def plot_spectrum_from_file(filename: str):
     plt.legend()
     plt.show()
 
-def plot_spectrum(df: pd.DataFrame):
-    df['data'].plot(x='energy in keV', y='counts', kind='hist', figsize=(10, 6))
+def plot_spectrum(df: pd.DataFrame, semilogy=False):
+    """Plot a gamma spectrum from a DataFrame."""
+    df['filename'] = df['filename'].replace('\\', '/')
+    data =  pd.read_table(df['filename'], header=3)
+    data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
+    print(data.shape)
+    data.plot(x='energy in keV', y='counts', kind='line', figsize=(10, 6))
+    plt.vlines(df['fitted_peaks_mean'], 0, max(data['counts']), color='r', linestyles='dashed', label='Fitted peaks')
+    for i, (identified_peak, isotope) in enumerate(zip(df['identified_peaks'],df['identified_isotopes'])):
+        colors = plt.cm.hsv(np.linspace(0.2, 0.8, len(df['identified_peaks'])))
+        plt.vlines(identified_peak, 0,  max(data['counts']), color=colors[i], label=f'identified peaks of {isotope}')
+        
+    if semilogy:
+        plt.semilogy('log')
+    plt.title(f'Spectrum: {df["filename"]}')
+    plt.legend()
     plt.xlabel('Energy (keV)')
     plt.ylabel('Counts')
 
@@ -191,6 +205,8 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
     peak_confidences = []
     isotope_confidences = []
     percentage_matched = []
+    identified_peaks = []
+    
     for peak, std in zip(unumpy.nominal_values(fitted_peaks), unumpy.std_devs(fitted_peaks)):
         for index, row in known_isotopes.iterrows():
             matched = []
@@ -201,6 +217,7 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
                     peak_confidences.append(peak_confidence)
                     if verbose:
                         print(f"Peak at {peak:2f} +- {std:2f} keV matched to {row['Isotope']} at {energy} keV with confidence {peak_confidence:.2f}")
+                    
             if len(matched)==0:
                 continue
 
@@ -208,6 +225,7 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
                     identified_isotopes.append(row['Isotope'])
                     isotope_confidences.append(np.mean(peak_confidences))
                     percentage_matched.append(len(matched)/len(row['Energies (keV)']))
+                    identified_peaks.append(peak)
                     if verbose:
                         print(f"Isotope {row['Isotope']} identified with {len(matched)/len(row['Energies (keV)'])*100:.2f}% of peaks matched")
 
@@ -215,7 +233,7 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
                 if verbose:
                     print(f"Isotope {row['Isotope']} not sufficiently identified")
 
-    return identified_isotopes, isotope_confidences, percentage_matched
+    return identified_isotopes, identified_peaks, isotope_confidences, percentage_matched
 
 def process_spectrum(filename: str, prominence: int = 1000, width: int = None, rel_height: float = None, verbose=False, **kwargs) -> pd.DataFrame:
     """
@@ -280,7 +298,7 @@ def process_spectrum(filename: str, prominence: int = 1000, width: int = None, r
 
     peaks, properties = find_peaks(data['counts'], prominence=prominence, width=width, rel_height=rel_height)
     fitted_peaks = fit_gaussian(data, peaks, properties, polynomial=polynomial)
-    identified_isotopes, confidences, matched = identify_isotopes(fitted_peaks, verbose=verbose)
+    identified_isotopes, identified_peaks, confidences, matched = identify_isotopes(fitted_peaks, verbose=verbose)
     total_confidences = [c * p for c, p in zip(confidences, matched)]
     return pd.DataFrame({
         'filename': [filename],
@@ -292,6 +310,7 @@ def process_spectrum(filename: str, prominence: int = 1000, width: int = None, r
         'fitted_peaks_mean': [unumpy.nominal_values(fitted_peaks)],
         'fitted_peaks_std': [unumpy.std_devs(fitted_peaks)],
         'identified_isotopes': [identified_isotopes],
+        'identified_peaks': [identified_peaks],
         'confidences': [confidences],
         'matched': [matched],
         'total_confidences': [total_confidences]
