@@ -61,7 +61,7 @@ def fit_gaussian(data: pd.DataFrame, peaks: np.ndarray, properties: dict, polyno
                 x = np.arange(peak-5, peak+5)
             elif len(x) > 30:
                 x = np.arange(peak-5, peak+5)  
-            y = data['counts'].iloc[x]
+            y = data['counts_cleaned'].iloc[x]
             popt, _ = curve_fit(gaussian, x, y, p0=[y.max(), x.mean(), 1], maxfev = 2000)
             fitted_peak_mean.append(np.abs(popt[1]))
             fitted_peak_std.append(np.abs(popt[2]))
@@ -179,6 +179,7 @@ def plot_spectrum(df: pd.DataFrame, semilogy=False):
     df['filename'] = df['filename'].replace('\\', '/')
     data =  pd.read_table(df['filename'], header=3)
     data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
+    data['background'] = identify_background(data)
     print(data.shape)
     data.plot(x='energy in keV', y='counts', kind='line', figsize=(10, 6))
     plt.vlines(df['fitted_peaks_mean'], 0, max(data['counts']), color='r', linestyles='dashed', label='Fitted peaks')
@@ -188,6 +189,8 @@ def plot_spectrum(df: pd.DataFrame, semilogy=False):
         
     if semilogy:
         plt.semilogy('log')
+    
+    plt.plot(data['energy in keV'], data['background'], color='r', label='Background')
     plt.title(f'Spectrum: {df["filename"]}')
     plt.legend()
     plt.xlabel('Energy (keV)')
@@ -312,7 +315,6 @@ def process_spectrum(filename: str, prominence: int = 1000, width: int = None, r
 
     data = pd.read_table(filename, header=3)
     data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
-
     try:
         with open(filename, 'r') as file:
             lines = file.readlines()
@@ -325,7 +327,9 @@ def process_spectrum(filename: str, prominence: int = 1000, width: int = None, r
         line_3 = lines[2].strip()  # Line 3 (index 2) and strip any leading/trailing whitespace
         polynomial = parse_polynomial(line_3)
 
-    peaks, properties = find_peaks(data['counts'], prominence=prominence, width=width, rel_height=rel_height)
+    background = identify_background(data)
+    data['counts_cleaned'] = data['counts'] - background
+    peaks, properties = find_peaks(data['counts_cleaned'], prominence=prominence, width=width, rel_height=rel_height, **kwargs)
     fitted_peaks = fit_gaussian(data, peaks, properties, polynomial=polynomial)
     identified_isotopes, identified_peaks, confidences, matched = identify_isotopes(fitted_peaks, tolerance=tolerance, verbose=verbose)
     total_confidences = [c * p for c, p in zip(confidences, matched)]
