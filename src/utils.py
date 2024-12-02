@@ -163,18 +163,17 @@ def plot_spectrum_from_file(filename: str, bg: np.ndarray = np.array([])):
     """Plot a gamma spectrum from a data file."""
     data = pd.read_table(filename, header=3)
     data['energy in keV'] = data['energy in keV'].str.replace(',', '.').astype(float)
-
+    data['background'] = identify_background(data)
     plt.figure(figsize=(10, 6))
     plt.plot(data['energy in keV'], data['counts'], label=filename)
-    if len(bg)!=0:
-        plt.plot(data['energy in keV'], bg, label='Background', color='r')
+    plt.plot(data['energy in keV'], data['background'], color='r', label='Background')
     plt.xlabel('Energy (keV)')
     plt.ylabel('Counts')
     plt.title('Spectrum')
     plt.legend()
     plt.show()
 
-def plot_spectrum(df: pd.DataFrame, semilogy=False):
+def plot_spectrum(df: pd.DataFrame, semilogy=False, all_fitted_peaks=False):
     """Plot a gamma spectrum from a DataFrame."""
     df['filename'] = df['filename'].replace('\\', '/')
     data =  pd.read_table(df['filename'], header=3)
@@ -182,10 +181,11 @@ def plot_spectrum(df: pd.DataFrame, semilogy=False):
     data['background'] = identify_background(data)
     print(data.shape)
     data.plot(x='energy in keV', y='counts', kind='line', figsize=(10, 6))
-    plt.vlines(df['fitted_peaks_mean'], 0, max(data['counts']), color='r', linestyles='dashed', label='Fitted peaks')
+    if all_fitted_peaks:
+        plt.vlines(df['fitted_peaks_mean'], 0, max(data['counts']), color='r', linestyles='dashed', label='Fitted peaks')
     for i, (identified_peak, isotope) in enumerate(zip(df['identified_peaks'],df['identified_isotopes'])):
         colors = plt.cm.hsv(np.linspace(0.2, 0.8, len(df['identified_peaks'])))
-        plt.vlines(identified_peak, 0,  max(data['counts']), color=colors[i], label=f'identified peaks of {isotope}')
+        plt.vlines(identified_peak, -100, max(data['counts'])/10, color=colors[i], alpha=0.5 , label=f'identified peak of {isotope} at {identified_peak} keV')
         
     if semilogy:
         plt.semilogy('log')
@@ -204,7 +204,7 @@ def calculate_confidence(peak, energy, std):
     confidence = confidence / norm.pdf(peak, loc=peak, scale=std)
     return confidence
 
-def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, matching_ratio: float=1/3, verbose=False) -> list:
+def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, matching_ratio: float=1/5, verbose=False) -> list:
     """
         Identify isotopes based on fitted peak energies.
         This function compares the provided fitted peak energies with known isotope energies
