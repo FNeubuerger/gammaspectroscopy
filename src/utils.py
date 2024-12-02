@@ -172,7 +172,7 @@ def calculate_confidence(peak, energy, std):
     confidence = confidence / norm.pdf(peak, loc=peak, scale=std)
     return confidence
 
-def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, matching_ratio: float=0.5, verbose=False) -> list:
+def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, matching_ratio: float=1/3, verbose=False) -> list:
     """
         Identify isotopes based on fitted peak energies.
         This function compares the provided fitted peak energies with known isotope energies
