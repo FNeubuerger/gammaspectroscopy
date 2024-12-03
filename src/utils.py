@@ -99,6 +99,9 @@ def identify_background(data: pd.DataFrame, wndw: int = 5, order: int = 3, scale
     return background
 
 def get_isotopes_df()-> pd.DataFrame:
+    return pd.read_parquet('databasegamma.parquet')
+
+def get_small_isotopes_df()-> pd.DataFrame:
     """
     Create a DataFrame with gamma spectrum data for various isotopes.
     The DataFrame contains the following columns:
