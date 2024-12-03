@@ -118,7 +118,7 @@ def get_isotopes_df(intensity_cutoff: float = 0)-> pd.DataFrame:
     Notes
     -----
     Requires 'databasegamma.parquet' file in the working directory.
-    """    
+    """
     df = pd.read_parquet('databasegamma.parquet')
     df = df[df['Intensity (% Activity)'] > intensity_cutoff]
     df_aggregated = df.groupby("Nuclide").agg(lambda x: list(x))
@@ -230,6 +230,33 @@ def calculate_confidence(peak, energy, std):
     confidence = confidence / norm.pdf(peak, loc=peak, scale=std)
     return confidence
 
+def calculate_intensity_cutoff(data: pd.DataFrame , snr_threshold: float = 3.0) -> float:
+    """
+    Calculate an intensity cutoff based on the Signal-to-Noise Ratio (SNR).
+    
+    Parameters:
+    -----------
+    data : pd.DataFrame
+        The processed data containing the counts and background.
+    snr_threshold : float, optional
+        The SNR threshold to determine the intensity cutoff (default is 3.0).
+    
+    Returns:
+    --------
+    float
+        The calculated intensity cutoff.
+    """
+    signal_max = data['counts'].max()
+    background_mean = data['background'].mean()
+    noise = signal_max - background_mean
+    snr = signal_max / noise
+
+    if snr < snr_threshold:
+        return 0.0  # No significant signal detected
+    else:
+        return snr_threshold * noise / signal_max
+
+
 def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, matching_ratio: float=1/5, verbose=False) -> list:
     """
         Identify isotopes based on fitted peak energies.
@@ -256,7 +283,7 @@ def identify_isotopes(fitted_peaks: unumpy.uarray, tolerance: float = 0.5, match
         percentage_matched : list
             List of percentages of matched peaks for each identified isotope.
     """
-
+    
     known_isotopes = get_isotopes_df()
 
     identified_isotopes = []   
