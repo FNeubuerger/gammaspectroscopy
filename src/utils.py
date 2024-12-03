@@ -98,8 +98,31 @@ def identify_background(data: pd.DataFrame, wndw: int = 5, order: int = 3, scale
     background = np.interp(np.arange(len(counts)), np.arange(len(counts))[background_mask], counts[background_mask])
     return background
 
-def get_isotopes_df()-> pd.DataFrame:
-    return pd.read_parquet('databasegamma.parquet')
+def get_isotopes_df(intensity_cutoff: float = 0)-> pd.DataFrame:
+    """
+    Retrieves and filters isotope data from a parquet database based on intensity threshold.
+    This function reads a parquet file containing nuclear isotope data and filters entries
+    based on a minimum intensity threshold. The filtered data is then aggregated by nuclide.
+    Parameters
+    ----------
+    intensity_cutoff : float (default is 0)
+        Minimum intensity threshold (in % Activity) to filter the gamma lines.
+        Only lines with intensity greater than this value are kept.
+    Returns
+    -------
+    pd.DataFrame
+        Aggregated DataFrame where:
+        - Index contains unique nuclide names
+        - Column values are lists containing all associated values for each nuclide
+        - Each row represents a unique nuclide with all its gamma lines above the intensity cutoff
+    Notes
+    -----
+    Requires 'databasegamma.parquet' file in the working directory.
+    """    
+    df = pd.read_parquet('databasegamma.parquet')
+    df = df[df['Intensity (% Activity)'] > intensity_cutoff]
+    df_aggregated = df.groupby("Nuclide").agg(lambda x: list(x))
+    return df_aggregated
 
 def get_small_isotopes_df()-> pd.DataFrame:
     """
